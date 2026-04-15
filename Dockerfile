@@ -46,7 +46,9 @@ RUN git clone --depth 1 https://github.com/ggml-org/llama.cpp.git /tmp/llama.cpp
     cmake --build build --config Release -j$(nproc) --target llama-server && \
     mkdir -p /app && \
     cp build/bin/llama-server /app/llama-server && \
-    find build -name '*.so' -exec cp {} /app/ \; && \
+    find build -name '*.so*' -exec cp {} /app/ \; && \
+    echo "/app" > /etc/ld.so.conf.d/llama.conf && \
+    ldconfig && \
     rm -rf /tmp/llama.cpp
 
 # Set the working directory
