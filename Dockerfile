@@ -30,6 +30,10 @@ RUN apt-get update --yes --quiet && DEBIAN_FRONTEND=noninteractive apt-get insta
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
+ENV LIBRARY_PATH=/usr/local/cuda/lib64/stubs:${LIBRARY_PATH}
+ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64/stubs:${LD_LIBRARY_PATH}
+RUN ln -sf /usr/local/cuda/lib64/stubs/libcuda.so /usr/local/cuda/lib64/stubs/libcuda.so.1
+
 # Clone and build llama.cpp with CUDA 12.6.3 support
 # Architectures: Pascal(60), Volta(70), Turing(75), Ampere(80,86), Ada Lovelace(89), Hopper(90)
 RUN git clone --depth 1 https://github.com/ggml-org/llama.cpp.git /tmp/llama.cpp && \
