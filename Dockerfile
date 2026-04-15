@@ -1,15 +1,19 @@
-# Use an official ggml-org/llama.cpp image as the base image
-FROM ghcr.io/ggml-org/llama.cpp:server-cuda
+# ==============================================================================
+# Custom build of llama.cpp with CUDA 12.6.3 support
+# ==============================================================================
+FROM nvidia/cuda:12.6.3-devel-ubuntu22.04
 
 ENV PYTHONUNBUFFERED=1
 
-# Set up the working directory
-WORKDIR /
-
+# Install build dependencies and Python 3.11
 RUN apt-get update --yes --quiet && DEBIAN_FRONTEND=noninteractive apt-get install --yes --quiet --no-install-recommends \
     software-properties-common \
     gpg-agent \
-    build-essential apt-utils \
+    build-essential \
+    apt-utils \
+    git \
+    cmake \
+    libcurl4-openssl-dev \
     && apt-get install --reinstall ca-certificates \
     && add-apt-repository --yes ppa:deadsnakes/ppa && apt update --yes --quiet \
     && DEBIAN_FRONTEND=noninteractive apt-get install --yes --quiet --no-install-recommends \
@@ -25,6 +29,21 @@ RUN apt-get update --yes --quiet && DEBIAN_FRONTEND=noninteractive apt-get insta
     curl -sS https://bootstrap.pypa.io/get-pip.py | python3.11 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
+
+# Clone and build llama.cpp with CUDA 12.6.3 support
+# Architectures: Pascal(60), Volta(70), Turing(75), Ampere(80,86), Ada Lovelace(89), Hopper(90)
+RUN git clone --depth 1 https://github.com/ggml-org/llama.cpp.git /tmp/llama.cpp && \
+    cd /tmp/llama.cpp && \
+    cmake -B build \
+        -DGGML_CUDA=ON \
+        -DCMAKE_CUDA_ARCHITECTURES="60;70;75;80;86;89;90" \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DLLAMA_CURL=ON && \
+    cmake --build build --config Release -j$(nproc) --target llama-server && \
+    mkdir -p /app && \
+    cp build/bin/llama-server /app/llama-server && \
+    find build -name '*.so' -exec cp {} /app/ \; && \
+    rm -rf /tmp/llama.cpp
 
 # Set the working directory
 WORKDIR /work
