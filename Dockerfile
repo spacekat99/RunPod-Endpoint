@@ -1,7 +1,7 @@
 # ==============================================================================
-# Custom build of llama.cpp with CUDA 12.6.3 support
+# Custom build of llama.cpp with CUDA 12.0 support
 # ==============================================================================
-FROM nvidia/cuda:12.6.3-devel-ubuntu22.04
+FROM nvidia/cuda:12.0.0-devel-ubuntu22.04
 
 ENV PYTHONUNBUFFERED=1
 
@@ -34,7 +34,7 @@ ENV LIBRARY_PATH=/usr/local/cuda/lib64/stubs:${LIBRARY_PATH}
 ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64/stubs:${LD_LIBRARY_PATH}
 RUN ln -sf /usr/local/cuda/lib64/stubs/libcuda.so /usr/local/cuda/lib64/stubs/libcuda.so.1
 
-# Clone and build llama.cpp with CUDA 12.6.3 support
+# Clone and build llama.cpp with CUDA 12.0 support
 # Architectures: Pascal(60), Volta(70), Turing(75), Ampere(80,86), Ada Lovelace(89), Hopper(90)
 RUN git clone --depth 1 https://github.com/ggml-org/llama.cpp.git /tmp/llama.cpp && \
     cd /tmp/llama.cpp && \
