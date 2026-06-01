@@ -15,25 +15,53 @@ cleanup() {
 }
 
 CACHED_LLAMA_ARGS=""
+MODEL_ARGS=""
 
 find_cached_path() {
     CACHED_LLAMA_ARGS="-m $(python ./find_cached.py $LLAMA_CACHED_MODEL $LLAMA_CACHED_GGUF_PATH)"
 }
 
-# check if $LLAMA_CACHED_MODEL is set and not empty
-if [ -n "$LLAMA_CACHED_MODEL" ]; then
+# ---------------------------------------------------------------------------
+# Model acquisition: download from HuggingFace, use cache, or use CMD_ARGS
+# ---------------------------------------------------------------------------
+# Priority order:
+#   1. HF_MODEL_REPO is set  -> download model from HuggingFace Hub
+#   2. LLAMA_CACHED_MODEL    -> resolve from local HF cache
+#   3. LLAMA_SERVER_CMD_ARGS -> use as-is (may contain -hf flag)
+#   4. None of the above     -> fall back to a small default model
+
+if [ -n "$HF_MODEL_REPO" ]; then
+    echo "start.sh: HF_MODEL_REPO is set. Downloading model from HuggingFace Hub..."
+    MODEL_PATH=$(python ./download_model.py)
+
+    if [ $? -ne 0 ] || [ -z "$MODEL_PATH" ]; then
+        echo "start.sh: Error: Failed to download model from HuggingFace."
+        exit 1
+    fi
+
+    echo "start.sh: Model downloaded to: $MODEL_PATH"
+    MODEL_ARGS="-m $MODEL_PATH"
+
+elif [ -n "$LLAMA_CACHED_MODEL" ]; then
     echo "start.sh: Caching is enabled. Finding cached model path..."
     find_cached_path
+    MODEL_ARGS="$CACHED_LLAMA_ARGS"
+    echo "start.sh: Using cached model with arguments: $MODEL_ARGS"
 
-    echo "start.sh: Using cached model with arguments: $CACHED_LLAMA_ARGS"
 else
-    echo "start.sh: WARNING: Caching is disabled. Please visit the inference-worker README and docs to learn more."
+    echo "start.sh: WARNING: No HF_MODEL_REPO or LLAMA_CACHED_MODEL set."
 fi
 
 # check if $LLAMA_SERVER_CMD_ARGS is set
 if [ -z "$LLAMA_SERVER_CMD_ARGS" ]; then
-    echo "start.sh: Warning: LLAMA_SERVER_CMD_ARGS is not set. Defaulting to -hf unsloth/gemma-3-270m-it-GGUF:IQ2_XXS --ctx-size 512 -ngl 999"
-    LLAMA_SERVER_CMD_ARGS="-hf unsloth/gemma-3-270m-it-GGUF:IQ2_XXS --ctx-size 512 -ngl 999"
+    if [ -n "$MODEL_ARGS" ]; then
+        # Model was downloaded or resolved from cache; set sensible defaults
+        echo "start.sh: LLAMA_SERVER_CMD_ARGS not set. Using defaults: --ctx-size 16384 -ngl 999"
+        LLAMA_SERVER_CMD_ARGS="--ctx-size 16384 -ngl 999"
+    else
+        echo "start.sh: Warning: LLAMA_SERVER_CMD_ARGS is not set. Defaulting to -hf unsloth/gemma-3-270m-it-GGUF:IQ2_XXS --ctx-size 512 -ngl 999"
+        LLAMA_SERVER_CMD_ARGS="-hf unsloth/gemma-3-270m-it-GGUF:IQ2_XXS --ctx-size 512 -ngl 999"
+    fi
 fi
 
 # check if the substring --port is in LLAMA_SERVER_CMD_ARGS and if yes, raise an error:
@@ -56,12 +84,12 @@ echo "start.sh: Stopping existing llama-server instances (if any)..."
 # we have a string with all the command line arguments in the env var LLAMA_SERVER_CMD_ARGS;
 # it contains a.e. "-hf modelname --ctx-size 4096 -ngl 999".
 
-echo "start.sh: Running /app/llama-server $CACHED_LLAMA_ARGS $LLAMA_SERVER_CMD_ARGS --port 3098"
+echo "start.sh: Running /app/llama-server $MODEL_ARGS $LLAMA_SERVER_CMD_ARGS --port 3098"
 
 touch llama.server.log
 
 # We need to pass these arguments to llama-server verbatim.
-LD_LIBRARY_PATH=/app:/usr/local/cuda/lib64 /app/llama-server $CACHED_LLAMA_ARGS $LLAMA_SERVER_CMD_ARGS --port 3098 2>&1 | tee llama.server.log &
+LD_LIBRARY_PATH=/app:/usr/local/cuda/lib64 /app/llama-server $MODEL_ARGS $LLAMA_SERVER_CMD_ARGS --port 3098 2>&1 | tee llama.server.log &
 
 LLAMA_SERVER_PID=$! # store the process ID (PID) of the background command
 
