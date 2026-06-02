@@ -2,7 +2,7 @@
     <img src="https://raw.githubusercontent.com/ggml-org/llama.cpp/master/media/llama1-icon-transparent.png" alt="llama.cpp logo" width="128">
 </p>
 
-# Serverless llama.cpp inference worker for RunPod.
+# Serverless llama.cpp inference worker for RunPod
 
 This repository contains a serverless inference worker for running llama.cpp models on RunPod. It uses the `llama-server` image to provide an API for interacting with the models.
 The following OpenAI API endpoints are supported:
